@@ -42,6 +42,7 @@ def get_target_env(idx):
     return '/usr/local/etc/exabgp/exabgp_%d.env' % idx
 
 def prepare_exa_env(dvs, idx):
+    mkdir('/usr/local/etc')
     mkdir('/usr/local/etc/exabgp')
     tmp_name = '/tmp/env'
     dvs.servers[idx].runcmd("exabgp --fi > %s" % tmp_name)
@@ -72,7 +73,9 @@ def run_exacli(dvs, idx, cmd):
 
 def test_gr_livelock(dvs, testlog):
     dvs.copy_file("/etc/quagga/", "bgp/files/gr_livelock/bgpd.conf")
+    dvs.servers[0].runcmd("pkill exabgp") # In case previous test didn't stop exa
     dvs.runcmd("supervisorctl stop bgpd")
+    time.sleep(5)
     dvs.runcmd("supervisorctl start bgpd")
     dvs.runcmd("ip addr add 10.0.0.0/31 dev Ethernet0")
     dvs.runcmd("ifconfig Ethernet0 up")
