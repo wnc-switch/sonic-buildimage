@@ -3,6 +3,7 @@ import os
 import re
 import time
 import json
+import random
 
 def output(dvs, title):
     print "=========================== %s ===========================" % title
@@ -44,7 +45,7 @@ def get_target_env(idx):
 def prepare_exa_env(dvs, idx):
     mkdir('/usr/local/etc')
     mkdir('/usr/local/etc/exabgp')
-    tmp_name = '/tmp/env'
+    tmp_name = '/tmp/env.%d.%d' % (random.randint(0, 10000000), os.getpid())
     dvs.servers[idx].runcmd("exabgp --fi > %s" % tmp_name)
     with open(tmp_name) as r_fp:
         with open(get_target_env(idx), 'w') as w_fp:
@@ -52,6 +53,7 @@ def prepare_exa_env(dvs, idx):
                 if line.startswith('pipename'):
                     line = "pipename = 'exabgp.%d'\n" % idx
                 w_fp.write(line)
+    os.unlink(tmp_name)
 
 
 def run_exa(dvs, idx, cfg):
@@ -66,7 +68,10 @@ def run_exa(dvs, idx, cfg):
     os.mkfifo(fifo_out_path)
     os.chmod(fifo_in_path,  0666)
     os.chmod(fifo_out_path, 0666)
-    return dvs.servers[idx].runcmd_async("exabgp -d --env %s %s" % (get_target_env(idx), cfg))
+    print "!!! Start exabgp instance %d" % idx
+    cmd = "exabgp -d --env %s %s" % (get_target_env(idx), cfg)
+    print "Cmd is ___ %s ___" % cmd
+    return dvs.servers[idx].runcmd_async(cmd)
 
 def run_exacli(dvs, idx, cmd):
     return dvs.servers[idx].runcmd('exabgpcli --env %s %s' % (get_target_env(idx), cmd))
