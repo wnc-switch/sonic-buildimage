@@ -77,6 +77,9 @@ def run_exacli(dvs, idx, cmd):
     return dvs.servers[idx].runcmd('exabgpcli --env %s %s' % (get_target_env(idx), cmd))
 
 def test_gr_livelock(dvs, testlog):
+    # update exabgp to version 4.0.10
+    dvs.servers[0].runcmd("pip install 'exabgp==4.0.10' --force-reinstall ")
+    #
     dvs.copy_file("/etc/quagga/", "bgp/files/gr_livelock/bgpd.conf")
     dvs.servers[0].runcmd("pkill exabgp") # In case previous test didn't stop exa
     dvs.runcmd("supervisorctl stop bgpd")
