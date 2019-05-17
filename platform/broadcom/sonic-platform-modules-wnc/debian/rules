@@ -9,7 +9,7 @@ PACKAGE_PRE_NAME := platform-modules-wnc
 KVERSION   ?= $(shell uname -r)
 KERNEL_SRC :=  /lib/modules/$(KVERSION)
 MOD_SRC_DIR:= $(shell pwd)
-MODULE_DIRS:= rseb-w2-32
+MODULE_DIRS:= rseb-w2-32 rseb-w1-32
 
 %:
 	dh $@ --with=systemd
