@@ -5,12 +5,12 @@ Maintainer: WNC <stane.shieh@wnc.com.tw>
 Build-Depends: debhelper (>= 8.0.0), bzip2
 Standards-Version: 3.9.3
 
-Package: platform-modules-wnc-rseb-w2-32
+Package: platform-modules-rseb-w2-32
 Architecture: amd64
 Depends: linux-image-4.9.0-8-2-amd64
 Description: kernel modules for platform devices such as fan, led, sfp
 
-Package: platform-modules-wnc-rseb-w1-32
+Package: platform-modules-rseb-w1-32
 Architecture: amd64
 Depends: linux-image-4.9.0-8-2-amd64
 Description: kernel modules for platform devices such as fan, led, sfp

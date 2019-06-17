@@ -1,11 +1,9 @@
 #!/usr/bin/make -f
-# Uncomment this to turn on verbose mode.
 export DH_VERBOSE=1
 
 export INSTALL_MOD_DIR:=extra
 
 
-PACKAGE_PRE_NAME := platform-modules-wnc
 KVERSION   ?= $(shell uname -r)
 KERNEL_SRC :=  /lib/modules/$(KVERSION)
 MOD_SRC_DIR:= $(shell pwd)
@@ -21,10 +19,10 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	(for mod in $(MODULE_DIRS); do \
-			dh_installdirs -p$(PACKAGE_PRE_NAME)-$${mod} \
+			dh_installdirs -pplatform-modules-$${mod} \
 				$(KERNEL_SRC)/$(INSTALL_MOD_DIR); \
 			cp $(MOD_SRC_DIR)/$${mod}/modules/*.ko \
-					debian/$(PACKAGE_PRE_NAME)-$${mod}/$(KERNEL_SRC)/$(INSTALL_MOD_DIR); \
+					debian/platform-modules-$${mod}/$(KERNEL_SRC)/$(INSTALL_MOD_DIR); \
 	done)
 
 override_dh_usrlocal:

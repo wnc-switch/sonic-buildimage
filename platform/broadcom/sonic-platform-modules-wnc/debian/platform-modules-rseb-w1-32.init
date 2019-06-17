@@ -36,7 +36,7 @@ force-reload|restart)
     ;;
 
 *)
-    echo "Usage: /etc/init.d/platform-wnc-rseb-w1-32 {start|stop}"
+    echo "Usage: /etc/init.d/platform-modules-rseb-w1-32.init {start|stop}"
     exit 1
     ;;
 esac

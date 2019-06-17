@@ -1,9 +1,5 @@
 sonic-wnc-platform-modules (1.0) unstable; urgency=low
 
-  * Add rseb-w1-32 platform module.
-
- -- WNC WIBU <joyce.peng@wnc.com.tw>  Fri, 09 May 2019 12:00:00 +08002
-
   * Initial release
 
- -- WNC WIBU <stane.shieh@wnc.com.tw>  Fri, 03 May 2019 12:00:00 +08002
+ -- WNC WIBU <stane.shieh@wnc.com.tw>  Fri, 03 May 2019 12:00:00 -0800

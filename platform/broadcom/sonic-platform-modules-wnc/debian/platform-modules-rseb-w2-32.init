@@ -1,0 +1,160 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:          setup-board
+# Required-Start:
+# Required-Stop:
+# Should-Start:
+# Should-Stop:
+# Default-Start:     S
+# Default-Stop:      0 6
+# Short-Description: Setup rseb-w2-32 board.
+### END INIT INFO
+
+driver_load () {
+    if [ `lsmod | grep -c "i2c_dev "` -eq 0 ]; then
+            modprobe i2c_dev
+    fi
+
+    modprobe i2c_i801
+    modprobe i2c_ismt
+
+    if [ `lsmod | grep -c "i2c_mux_pca954x "` -eq 0 ]; then
+            modprobe i2c_mux_pca954x force_deselect_on_exit=1
+    fi
+    if [ `lsmod | grep -c "at24 "` -eq 0 ]; then
+            modprobe at24
+    fi
+    if [ `lsmod | grep -c "lm75 "` -eq 0 ]; then
+            modprobe lm75
+    fi
+    if [ `lsmod | grep -c "gpio-pca953x "` -eq 0 ]; then
+            modprobe gpio-pca953x
+    fi
+    if [ `lsmod | grep -c "optoe "` -eq 0 ]; then
+            modprobe optoe
+    fi
+    if [ `lsmod | grep -c "jc42 "` -eq 0 ]; then
+            modprobe jc42
+    fi
+    if [ `lsmod | grep -c "rseb_w2_32_sys_cpld "` -eq 0 ]; then
+            modprobe rseb_w2_32_sys_cpld
+    fi
+    #if [ `lsmod | grep -c "wnc_psu "` -eq 0 ]; then
+    #        modprobe wnc_psu
+    #fi
+}
+
+device_node () {
+    local IO_EXPENDER_EVEN='10 12 14'
+    local IO_EXPENDER_ODD='11 13 15'
+    local MUX_START_CHANNEL='18 26 34 42 50 58'
+    local PORT_NUM=1
+    local MAX_PORT=32
+    local START_GPIO=368
+    local END_GPIO=$(($START_GPIO+143))
+    local START_INTERRUPT=$START_GPIO
+    local START_PRESENT=$((START_INTERRUPT+1))
+    local START_LOW_POWER=$((START_PRESENT+1))
+    local START_RESET=$((START_LOW_POWER+1))
+    local I2C_BUS=0
+
+    echo pca9548 0x70 > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
+    #echo 24c64 0x54 > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
+
+    I2C_BUS=1
+    echo pca9548 0x71 > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
+    echo lm75 0x4e > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
+
+    sleep 3
+
+    I2C_BUS=5
+    echo lm75 0x4a > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
+    echo lm75 0x4b > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
+    echo lm75 0x4c > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
+    echo lm75 0x4d > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
+
+    I2C_BUS=6
+    echo rseb_w2_32_sys_cpld 0x5a > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
+
+    for i in $IO_EXPENDER_EVEN; do
+        echo pca9548 0x72 > /sys/bus/i2c/devices/i2c-$i/new_device
+        echo tca6424 0x22 > /sys/bus/i2c/devices/i2c-$i/new_device
+    done
+
+    for i in $IO_EXPENDER_ODD; do
+        echo pca9548 0x73 > /sys/bus/i2c/devices/i2c-$i/new_device
+        echo tca6424 0x23 > /sys/bus/i2c/devices/i2c-$i/new_device
+    done
+
+    I2C_BUS=16
+    #echo wnc_psu 0x52 > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
+
+    I2C_BUS=17
+    #echo wnc_psu 0x52 > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
+
+    for START_PORT_CHANNEL in $MUX_START_CHANNEL; do
+        END_PORT_CHANNEL=$((START_PORT_CHANNEL+5))
+        for i in $(seq $START_PORT_CHANNEL $END_PORT_CHANNEL); do
+            echo optoe1 0x50 > /sys/bus/i2c/devices/i2c-$i/new_device
+            echo Ethernet$PORT_NUM > /sys/bus/i2c/devices/$i-0050/port_name
+            PORT_NUM=$((PORT_NUM+1))
+            if [ $PORT_NUM -gt $MAX_PORT ]; then
+                break
+            fi
+        done
+    done
+
+    for ((i=$START_GPIO; i<=$END_GPIO; i++)); do
+    	echo $i > /sys/class/gpio/export
+    done
+
+    for i in $START_INTERRUPT $START_PRESENT; do
+        PORT_NUM=1
+        for ((j=$i; j<=$END_GPIO; j=$((j+4)))); do
+            echo "in" > /sys/class/gpio/gpio$j/direction
+            PORT_NUM=$((PORT_NUM+1))
+            if [ $PORT_NUM -gt $MAX_PORT ]; then
+                break
+            fi
+        done
+    done
+
+    for i in $START_LOW_POWER $START_RESET; do
+        PORT_NUM=1
+        for ((j=$i; j<=$END_GPIO; j=$((j+4)))); do
+            echo out > /sys/class/gpio/gpio$j/direction
+            echo 0 > /sys/class/gpio/gpio$j/value
+            PORT_NUM=$((PORT_NUM+1))
+            if [ $PORT_NUM -gt $MAX_PORT ]; then
+                break
+            fi
+        done
+    done
+}
+
+case "$1" in
+start)
+    echo -n "Setting up board... "
+        depmod -a
+        driver_load
+        device_node
+    echo "done."
+    ;;
+
+stop)
+    echo -n "cleaning... "
+    echo "done."
+    ;;
+
+force-reload|restart)
+    echo "Not supported"
+    ;;
+
+*)
+    echo "Usage: /etc/init.d/platform-modules-rseb-w2-32.init {start|stop}"
+    exit 1
+    ;;
+esac
+
+exit 0
