@@ -40,9 +40,6 @@ driver_load () {
     if [ `lsmod | grep -c "rseb_w2_32_sys_cpld "` -eq 0 ]; then
             modprobe rseb_w2_32_sys_cpld
     fi
-    #if [ `lsmod | grep -c "wnc_psu "` -eq 0 ]; then
-    #        modprobe wnc_psu
-    #fi
 }
 
 device_node () {
@@ -50,7 +47,7 @@ device_node () {
     local IO_EXPENDER_ODD='11 13 15'
     local MUX_START_CHANNEL='18 26 34 42 50 58'
     local PORT_NUM=1
-    local MAX_PORT=32
+    local MAX_PORT=36
     local START_GPIO=368
     local END_GPIO=$(($START_GPIO+143))
     local START_INTERRUPT=$START_GPIO
@@ -75,7 +72,7 @@ device_node () {
     echo lm75 0x4d > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
 
     I2C_BUS=6
-    echo rseb_w2_32_sys_cpld 0x5a > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
+    echo rseb_w2_32_sys_cpld 0x66 > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
 
     for i in $IO_EXPENDER_EVEN; do
         echo pca9548 0x72 > /sys/bus/i2c/devices/i2c-$i/new_device
@@ -86,12 +83,6 @@ device_node () {
         echo pca9548 0x73 > /sys/bus/i2c/devices/i2c-$i/new_device
         echo tca6424 0x23 > /sys/bus/i2c/devices/i2c-$i/new_device
     done
-
-    I2C_BUS=16
-    #echo wnc_psu 0x52 > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
-
-    I2C_BUS=17
-    #echo wnc_psu 0x52 > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
 
     for START_PORT_CHANNEL in $MUX_START_CHANNEL; do
         END_PORT_CHANNEL=$((START_PORT_CHANNEL+5))
@@ -106,7 +97,7 @@ device_node () {
     done
 
     for ((i=$START_GPIO; i<=$END_GPIO; i++)); do
-    	echo $i > /sys/class/gpio/export
+        echo $i > /sys/class/gpio/export
     done
 
     for i in $START_INTERRUPT $START_PRESENT; do
@@ -130,6 +121,15 @@ device_node () {
                 break
             fi
         done
+    done
+
+    PORT_NUM=1
+    for ((j=$START_RESET; j<=$END_GPIO; j=$((j+4)))); do
+        echo 1 > /sys/class/gpio/gpio$j/value
+        PORT_NUM=$((PORT_NUM+1))
+        if [ $PORT_NUM -gt $MAX_PORT ]; then
+            break
+        fi
     done
 }
 

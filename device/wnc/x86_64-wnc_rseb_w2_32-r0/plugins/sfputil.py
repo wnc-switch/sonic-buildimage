@@ -8,10 +8,6 @@ try:
     from sonic_sfp.sfputilbase import SfpUtilBase
     import sys
     sys.path.append('/usr/lib/python2.7/dist-packages/sonic_sfp/')
-    from sff8472 import sff8472InterfaceId
-    from sff8472 import sff8472Dom
-    from sff8436 import sff8436InterfaceId
-    from sff8436 import sff8436Dom
 except ImportError, e:
     raise ImportError("%s - required module not found" % str(e))
 
@@ -19,190 +15,100 @@ except ImportError, e:
 class SfpUtil(SfpUtilBase):
     """Platform-specific SfpUtil class"""
 
-    PORT_START = 0
-    PORT_END = 53
-    PORTS_IN_BLOCK = 54
-
-    EEPROM_OFFSET = 11
-
-    _port_to_eeprom_mapping = {}
-
     @property
     def port_start(self):
-        return self.PORT_START
+        return self._port_start
 
     @property
     def port_end(self):
-        return self.PORT_END
+        return self._port_end
 
     @property
     def qsfp_ports(self):
-        return range(self.PORT_START + 48, self.PORTS_IN_BLOCK)
+        return range(self._port_end + 1)
 
     @property
     def port_to_eeprom_mapping(self):
         return self._port_to_eeprom_mapping
 
     def __init__(self):
+        self._port_start = 0
+        self._port_end = 31
+        self._port_to_eeprom_mapping = {}
+        self._port_to_presence_mapping = {}
+        self._port_to_low_power_mapping = {}
+        self._port_to_reset_mapping = {}
         eeprom_path = "/sys/class/i2c-adapter/i2c-{0}/{0}-0050/eeprom"
+        mux_start_channel = (18, 26, 34, 42, 50, 58)
+        sfp_path = "/sys/class/gpio/gpio{0}/value"
+        gpio_start_pin = (489, 465, 441, 417, 393, 369)
 
-        for x in range(0, self.port_end + 1):
-            self._port_to_eeprom_mapping[x] = eeprom_path.format(x + self.EEPROM_OFFSET)
+        port_num = 0
+        for start_port_channel in mux_start_channel:
+            end_port_channel = start_port_channel + 6
+            for x in range(start_port_channel, end_port_channel):
+                self._port_to_eeprom_mapping[port_num] = eeprom_path.format(x)
+                port_num += 1
+                if port_num > self.port_end:
+                    break
+
+        port_num = 0
+        for start_pin in gpio_start_pin:
+            list_gpio = [start_pin + x*4 for x in range(6)]
+            for x in list_gpio:
+                self._port_to_presence_mapping[port_num] = sfp_path.format(x)
+                self._port_to_low_power_mapping[port_num] = sfp_path.format(x+1)
+                self._port_to_reset_mapping[port_num] = sfp_path.format(x+2)
+                port_num += 1
+                if port_num > self.port_end:
+                    break
 
         SfpUtilBase.__init__(self)
 
     def get_presence(self, port_num):
-        bit_mask = port_num % 8
-
-        if port_num <= 7:
-            presence_path = "/sys/bus/i2c/devices/3-0031/sfp_mod_abs1"
-        elif 8 <= port_num and port_num <= 15:
-            presence_path = "/sys/bus/i2c/devices/3-0031/sfp_mod_abs2"
-        elif 16 <= port_num and port_num <= 23:
-            presence_path = "/sys/bus/i2c/devices/3-0031/sfp_mod_abs3"
-        elif 24 <= port_num and port_num <= 27:
-            presence_path = "/sys/bus/i2c/devices/3-0031/sfp_mod_abs4"
-        elif 28 <= port_num and port_num <= 31:
-            presence_path = "/sys/bus/i2c/devices/4-0032/sfp_mod_abs1"
-            bit_mask = bit_mask - 4
-        elif 32 <= port_num and port_num <= 39:
-            presence_path = "/sys/bus/i2c/devices/4-0032/sfp_mod_abs2"
-        elif 40 <= port_num and port_num <= 47:
-            presence_path = "/sys/bus/i2c/devices/4-0032/sfp_mod_abs3"
-        elif 48 <= port_num and port_num <= 71:
-            presence_path = "/sys/bus/i2c/devices/4-0032/qsfp_modprs"
-        else:
+        if port_num < self.port_start or port_num > self.port_end:
             return False
 
-        try:
-            reg_file = open(presence_path, "rb")
-        except IOError as e:
-            print "Error: unable to open file: %s" % str(e)
-            return False
-
-        content = reg_file.readline().rstrip()
-        reg_value = int(content, 16)
-        reg_file.close()
-
-        if reg_value & (1 << bit_mask) == 0:
-            return True
-        else:
-            return False
+        with open(self._port_to_presence_mapping[port_num], "rb") as reg_file:
+            reg_value = int(reg_file.readline().rstrip())
+            if reg_value == 0:
+                return True
+            else:
+                return False
 
     def get_low_power_mode(self, port_num):
-        if port_num in self.qsfp_ports:
-            bit_mask = port_num % 8
-        else:
+        if port_num < self.port_start or port_num > self.port_end:
             return False
 
-        try:
-            reg_file = open("/sys/bus/i2c/devices/4-0032/qsfp_lpmode")
-        except IOError as e:
-            print "Error: unable to open file: %s" % str(e)
-
-        content = reg_file.readline().rstrip()
-        reg_value = int(content, 16)
-        reg_file.close()
-
-        if reg_value & (1 << bit_mask) == 0:
-            return False
-
-        return True
+        with open(self._port_to_low_power_mapping[port_num], "rb") as reg_file:
+            reg_value = int(reg_file.readline().rstrip())
+            if reg_value == 1:
+                return True
+            else:
+                return False
 
     def set_low_power_mode(self, port_num, lpmode):
-        if port_num in self.qsfp_ports:
-            bit_mask = port_num % 8
-        else:
+        if port_num < self.port_start or port_num > self.port_end:
             return False
 
-        try:
-            reg_file = open("/sys/bus/i2c/devices/4-0032/qsfp_lpmode", "r+")
-        except IOError as e:
-            print "Error: unable to open file: %s" % str(e)
-            return False
-
-        content = reg_file.readline().rstrip()
-        reg_value = int(content, 16)
-
-        if lpmode is True:
-            reg_value = reg_value | (1 << bit_mask)
-        else:
-            reg_value = reg_value & ~(1 << bit_mask)
-
-        reg_file.seek(0)
-        reg_file.write(str(reg_value))
-        reg_file.close()
+        with open(self._port_to_low_power_mapping[port_num], "r+") as reg_file:
+            reg_file.seek(0)
+            reg_file.write(str(int(lpmode)))
 
         return True
 
     def reset(self, port_num):
-        if port_num in self.qsfp_ports:
-            bit_mask = (port_num % 8) + 2
-        else:
+        if port_num < self.port_start or port_num > self.port_end:
             return False
 
-        try:
-            reg_file = open("/sys/bus/i2c/devices/4-0032/reset_control", "r+")
-        except IOError as e:
-            print "Error: unable to open file: %s" % str(e)
-            return False
-
-        content = reg_file.readline().rstrip()
-        reg_value = int(content, 16)
-        reg_value = reg_value & ~(1 << bit_mask)
-
-        reg_file.seek(0)
-        reg_file.write(str(reg_value))
-        reg_file.close()
-
-        time.sleep(1)
-
-        try:
-            reg_file = open("/sys/bus/i2c/devices/4-0032/reset_control", "w")
-        except IOError as e:
-            print "Error: unable to open file: %s" % str(e)
-            return False
-
-        reg_value = reg_value | (1 << bit_mask)
-        reg_file.seek(0)
-        reg_file.write(str(reg_value))
-        reg_file.close()
+        with open(self._port_to_reset_mapping[port_num], "r+") as reg_file:
+            reg_file.seek(0)
+            reg_file.write(str("0"))
+            time.sleep(1)
+            reg_file.seek(0)
+            reg_file.write(str("1"))
 
         return True
-
-    def get_eeprom_dict(self, port_num):
-        if not self.get_presence(port_num):
-            return None
-
-        sfp_data = {}
-
-        eeprom_ifraw = self.get_eeprom_raw(port_num)
-        eeprom_domraw = self.get_eeprom_dom_raw(port_num)
-
-        if eeprom_ifraw is None:
-            return None
-
-        if port_num in self.qsfp_ports:
-            sfpi_obj = sff8436InterfaceId(eeprom_ifraw)
-            if sfpi_obj is not None:
-                sfp_data['interface'] = sfpi_obj.get_data_pretty()
-
-            sfpd_obj = sff8436Dom(eeprom_ifraw)
-            if sfpd_obj is not None:
-                sfp_data['dom'] = sfpd_obj.get_data_pretty()
-            return sfp_data
-
-        sfpi_obj = sff8472InterfaceId(eeprom_ifraw)
-        if sfpi_obj is not None:
-            sfp_data['interface'] = sfpi_obj.get_data_pretty()
-            cal_type = sfpi_obj.get_calibration_type()
-
-        if eeprom_domraw is not None:
-            sfpd_obj = sff8472Dom(eeprom_domraw, cal_type)
-            if sfpd_obj is not None:
-                sfp_data['dom'] = sfpd_obj.get_data_pretty()
-
-        return sfp_data
 
     def get_transceiver_change_event(self):
         """
