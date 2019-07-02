@@ -133,12 +133,22 @@ device_node () {
     done
 }
 
+set_pwm () {
+    local START_FAN=1
+    local END_FAN=6
+
+    for i in $(seq $START_FAN $END_FAN); do
+        echo "0x30" > /sys/bus/i2c/devices/i2c-6/6-0066/fan_pwm_$i
+    done
+}
+
 case "$1" in
 start)
     echo -n "Setting up board... "
         depmod -a
         driver_load
         device_node
+        set_pwm
     echo "done."
     ;;
 
