@@ -61,4 +61,4 @@ class PsuUtil(PsuBase):
         except IOError:
             return False
 
-        return status == 1
+        return status == 0
