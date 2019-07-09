@@ -57,7 +57,7 @@ device_node () {
     local I2C_BUS=0
 
     echo pca9548 0x70 > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
-    #echo 24c64 0x54 > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
+    echo 24c02 0x54 > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
 
     I2C_BUS=1
     echo pca9548 0x71 > /sys/bus/i2c/devices/i2c-$I2C_BUS/new_device
